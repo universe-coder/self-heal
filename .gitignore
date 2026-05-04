@@ -13,3 +13,4 @@ htmlcov/
 .self-heal/
 .chroma/
 *.log
+.pypirc
