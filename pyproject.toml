@@ -3,8 +3,8 @@ requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "self-heal"
-version = "0.1.0"
+name = "self-heal-runtime"
+version = "0.1.1"
 description = "Open-source self-healing runtime for Python: RAG + OpenAI-compatible LLM + unified diff patches"
 readme = "README.md"
 license = { text = "MIT" }
