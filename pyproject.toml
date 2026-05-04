@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "self-heal"
+version = "0.1.0"
+description = "Open-source self-healing runtime for Python: RAG + OpenAI-compatible LLM + unified diff patches"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [{ name = "self-heal contributors" }]
+keywords = ["llm", "self-heal", "debugging", "openai", "rag"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "openai>=1.40.0",
+  "chromadb>=0.5.0",
+  "unidiff>=0.7.5",
+  "typer>=0.12.0",
+  "rich>=13.7.0",
+  "pydantic>=2.7.0",
+  "pydantic-settings>=2.3.0",
+  "pathspec>=0.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "pytest-asyncio>=0.23.0",
+  "ruff>=0.5.0",
+  "mypy>=1.10.0",
+  "httpx>=0.27.0",
+]
+
+[project.scripts]
+self-heal = "self_heal.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+self_heal = ["templates/*.toml", "py.typed"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/self_heal/cli.py" = ["B008"]
+"src/self_heal/supervisor/runner.py" = ["B023"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+packages = ["self_heal"]
+warn_return_any = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+  "chromadb",
+  "chromadb.*",
+  "unidiff",
+  "unidiff.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]

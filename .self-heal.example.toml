@@ -1,0 +1,27 @@
+[llm]
+base_url = "https://api.openai.com/v1"
+model = "gpt-4o-mini"
+embedding_model = "text-embedding-3-small"
+api_key_env = "OPENAI_API_KEY"
+timeout_s = 60
+max_tokens = 4096
+
+[index]
+roots = ["src/"]
+exclude = [".git/", "node_modules/", "__pycache__/", "*.pyc", ".venv/", ".self-heal/", ".chroma/"]
+chunk_max_lines = 80
+chunk_overlap_lines = 10
+
+[heal]
+allowed_paths = ["src/**", "examples/**"]
+forbidden_paths = [".env*", "**/secrets/**", ".git/", "pyproject.toml"]
+auto_apply = false
+max_attempts = 3
+backup = true
+top_k = 8
+max_diff_lines = 500
+
+[supervisor]
+restart_on_exit_codes = [1]
+max_restarts = 5
+healthcheck_grace_s = 5
