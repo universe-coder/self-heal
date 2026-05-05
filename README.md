@@ -1,5 +1,7 @@
 # self-heal
 
+[![PyPI version](https://img.shields.io/pypi/v/self-heal-runtime?style=flat)](https://pypi.org/project/self-heal-runtime/) [![Python](https://img.shields.io/badge/python-3.11%2B-blue?style=flat)](https://pypi.org/project/self-heal-runtime/) [![License](https://img.shields.io/github/license/universe-coder/self-heal?style=flat)](https://github.com/universe-coder/self-heal/blob/main/LICENSE) [![Last commit](https://img.shields.io/github/last-commit/universe-coder/self-heal?style=flat)](https://github.com/universe-coder/self-heal/commits/main) [![Open issues](https://img.shields.io/github/issues/universe-coder/self-heal?style=flat)](https://github.com/universe-coder/self-heal/issues) [![Forks](https://img.shields.io/github/forks/universe-coder/self-heal?style=flat)](https://github.com/universe-coder/self-heal/network/members) [![Stars](https://img.shields.io/github/stars/universe-coder/self-heal?style=flat)](https://github.com/universe-coder/self-heal/stargazers)
+
 Open-source **self-healing** helper for Python: index your repo (AST chunks + OpenAI-compatible **embeddings**), capture tracebacks (in-process hook / decorator or supervised subprocess), ask an **OpenAI-compatible** chat model for a **unified diff**, validate paths, optionally **apply** via `git apply` / `patch`, and **audit** proposals.
 
 - **Python** ≥ 3.11  
