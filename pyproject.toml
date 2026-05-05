@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "self-heal-runtime"
-version = "0.1.1"
+version = "0.2.0"
 description = "Open-source self-healing runtime for Python: RAG + OpenAI-compatible LLM + unified diff patches"
 readme = "README.md"
 license = { text = "MIT" }
@@ -30,6 +30,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+notifications = [
+  "sentry-sdk>=2.0.0",
+]
 dev = [
   "pytest>=8.0.0",
   "pytest-asyncio>=0.23.0",
@@ -72,6 +75,8 @@ module = [
   "chromadb.*",
   "unidiff",
   "unidiff.*",
+  "sentry_sdk",
+  "sentry_sdk.*",
 ]
 ignore_missing_imports = true
 

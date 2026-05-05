@@ -25,3 +25,39 @@ max_diff_lines = 500
 restart_on_exit_codes = [1]
 max_restarts = 5
 healthcheck_grace_s = 5
+
+[notifications]
+enabled = false
+events = [
+  "error_captured",
+  "heal_diff_proposed",
+  "heal_empty_diff",
+  "heal_applied",
+  "heal_apply_failed",
+]
+timeout_s = 5
+include_diff = false
+include_traceback = true
+max_traceback_lines = 20
+
+[notifications.telegram]
+enabled = false
+bot_token_env = "TELEGRAM_BOT_TOKEN"
+chat_id = ""
+parse_mode = "HTML"
+
+[notifications.slack]
+enabled = false
+webhook_url_env = "SLACK_WEBHOOK_URL"
+
+[notifications.webhook]
+enabled = false
+url_env = "SELF_HEAL_WEBHOOK_URL"
+signing_secret_env = "SELF_HEAL_WEBHOOK_SECRET"
+allow_insecure = false
+
+[notifications.sentry]
+enabled = false
+dsn_env = "SENTRY_DSN"
+environment = ""
+release = ""

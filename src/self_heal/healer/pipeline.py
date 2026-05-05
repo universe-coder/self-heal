@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from pathlib import Path
 from typing import Literal
@@ -16,12 +17,19 @@ from self_heal.healer.diff import (
 )
 from self_heal.healer.planner import build_healing_prompt
 from self_heal.llm.client import LLMClient
+from self_heal.notifications.dispatcher import notify
 from self_heal.retrieval.retriever import retrieve_chunks
 from self_heal.runtime.capture import ErrorEvent, format_event_for_llm
 
 log = logging.getLogger(__name__)
 
 Mode = Literal["suggest", "apply", "auto"]
+
+
+def _fingerprint_path(event: ErrorEvent) -> str | None:
+    if not event.frames:
+        return None
+    return event.frames[-1].path
 
 
 def _resolve_root(project_root: Path | None) -> Path:
@@ -46,6 +54,23 @@ def heal_exception(
     """Run healing for a captured `ErrorEvent`."""
     root = _resolve_root(project_root)
     conf = cfg or load_config_for_root(root)
+
+    append_audit(
+        root,
+        kind="error_captured",
+        data={"exception": event.exception_type, "message": event.message},
+    )
+    with contextlib.suppress(Exception):
+        notify(
+            root,
+            conf,
+            kind="error_captured",
+            exception_type=event.exception_type,
+            message=event.message,
+            traceback=event.traceback,
+            fingerprint_path=_fingerprint_path(event),
+        )
+
     llm = client or LLMClient(conf)
     if not llm.is_configured:
         log.warning("Skipping heal: no API key (%s)", conf.llm.api_key_env)
@@ -66,6 +91,17 @@ def heal_exception(
                 "raw_response_preview": raw[:2000],
             },
         )
+        with contextlib.suppress(Exception):
+            notify(
+                root,
+                conf,
+                kind="heal_empty_diff",
+                exception_type=event.exception_type,
+                message=event.message,
+                traceback=event.traceback,
+                raw_response_preview=raw[:2000],
+                applied=False,
+            )
         return DiffApplyResult(ok=False, message="empty diff from model", paths_touched=[])
 
     auto = conf.heal.auto_apply if auto_apply_override is None else auto_apply_override
@@ -87,14 +123,27 @@ def heal_exception(
                 "applied": False,
             },
         )
+        with contextlib.suppress(Exception):
+            notify(
+                root,
+                conf,
+                kind="heal_diff_proposed",
+                exception_type=event.exception_type,
+                message=event.message,
+                traceback=event.traceback,
+                diff_text=diff_text,
+                applied=False,
+                paths_touched=_paths_from_diff(diff_text, root),
+            )
         log.info("Proposed diff (not applied); use CLI or auto_apply to apply")
         return DiffApplyResult(ok=True, message="diff proposed (not applied)", paths_touched=[])
 
     result = apply_patch(root, diff_text, conf, do_backup=True)
     after_hashes = file_hashes(root, result.paths_touched)
+    kind = "heal_applied" if result.ok else "heal_apply_failed"
     append_audit(
         root,
-        kind="heal_applied" if result.ok else "heal_apply_failed",
+        kind=kind,
         data={
             "exception": event.exception_type,
             "diff": diff_text,
@@ -104,6 +153,19 @@ def heal_exception(
             "applied": result.ok,
         },
     )
+    with contextlib.suppress(Exception):
+        notify(
+            root,
+            conf,
+            kind=kind,
+            exception_type=event.exception_type,
+            message=event.message,
+            traceback=event.traceback,
+            diff_text=diff_text,
+            applied=result.ok,
+            paths_touched=result.paths_touched,
+            heal_message=result.message,
+        )
     return result
 
 

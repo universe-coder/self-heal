@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -56,11 +56,69 @@ class SupervisorConfig(BaseModel):
     healthcheck_grace_s: float = 5.0
 
 
+class TelegramNotifConfig(BaseModel):
+    enabled: bool = False
+    bot_token_env: str = "TELEGRAM_BOT_TOKEN"
+    chat_id: str = ""
+    parse_mode: Literal["HTML", "MarkdownV2", "none"] = "HTML"
+
+
+class SlackNotifConfig(BaseModel):
+    enabled: bool = False
+    webhook_url_env: str = "SLACK_WEBHOOK_URL"
+
+
+class WebhookNotifConfig(BaseModel):
+    enabled: bool = False
+    url_env: str = "SELF_HEAL_WEBHOOK_URL"
+    signing_secret_env: str = "SELF_HEAL_WEBHOOK_SECRET"
+    allow_insecure: bool = False
+
+
+class SentryNotifConfig(BaseModel):
+    enabled: bool = False
+    dsn_env: str = "SENTRY_DSN"
+    environment: str = ""
+    release: str = ""
+
+
+class NotificationsConfig(BaseModel):
+    enabled: bool = False
+    events: list[str] = Field(
+        default_factory=lambda: [
+            "error_captured",
+            "heal_diff_proposed",
+            "heal_empty_diff",
+            "heal_applied",
+            "heal_apply_failed",
+        ]
+    )
+    timeout_s: float = 5.0
+    include_diff: bool = False
+    include_traceback: bool = True
+    max_traceback_lines: int = 20
+    telegram: TelegramNotifConfig = Field(default_factory=TelegramNotifConfig)
+    slack: SlackNotifConfig = Field(default_factory=SlackNotifConfig)
+    webhook: WebhookNotifConfig = Field(default_factory=WebhookNotifConfig)
+    sentry: SentryNotifConfig = Field(default_factory=SentryNotifConfig)
+
+
+def _merge_notifications_dict(defaults: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
+    out = dict(defaults)
+    for k, v in user.items():
+        if k in out and isinstance(out[k], dict) and isinstance(v, dict):
+            out[k] = {**out[k], **v}
+        else:
+            out[k] = v
+    return out
+
+
 class SelfHealConfig(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     index: IndexConfig = Field(default_factory=IndexConfig)
     heal: HealConfig = Field(default_factory=HealConfig)
     supervisor: SupervisorConfig = Field(default_factory=SupervisorConfig)
+    notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
 
 
 def load_toml_file(path: Path) -> dict[str, Any]:
@@ -74,11 +132,16 @@ def merge_defaults(data: dict[str, Any]) -> SelfHealConfig:
     index = {**IndexConfig().model_dump(), **data.get("index", {})}
     heal = {**HealConfig().model_dump(), **data.get("heal", {})}
     sup = {**SupervisorConfig().model_dump(), **data.get("supervisor", {})}
+    notif_merged = _merge_notifications_dict(
+        NotificationsConfig().model_dump(),
+        data.get("notifications", {}),
+    )
     return SelfHealConfig(
         llm=LLMConfig(**llm),
         index=IndexConfig(**index),
         heal=HealConfig(**heal),
         supervisor=SupervisorConfig(**sup),
+        notifications=NotificationsConfig.model_validate(notif_merged),
     )
 
 

@@ -11,7 +11,9 @@ Open-source **self-healing** helper for Python: index your repo (AST chunks + Op
 ## Install
 
 ```bash
-pip install -e ".[dev]"   # from this repo
+pip install self-heal-runtime
+# optional: notifications integrations (Sentry SDK extra)
+pip install "self-heal-runtime[notifications]"
 ```
 
 Set `OPENAI_API_KEY` (or the env name from `[llm].api_key_env` in `.self-heal.toml`).
@@ -66,7 +68,17 @@ Set `OPENAI_API_KEY` (or the env name from `[llm].api_key_env` in `.self-heal.to
 
 See [.self-heal.example.toml](.self-heal.example.toml) or run `self-heal init` (template ships in `self_heal/templates/`).
 
-Key sections: `[llm]`, `[index]`, `[heal]`, `[supervisor]`.
+Key sections: `[llm]`, `[index]`, `[heal]`, `[supervisor]`, `[notifications]`.
+
+## Notifications
+
+Optional outbound reports when an error is captured and when a heal is proposed or applied. Enable `[notifications].enabled = true`, then turn on individual channels under `[notifications.telegram]`, `[notifications.slack]`, `[notifications.webhook]`, or `[notifications.sentry]`. Secrets stay in environment variables (e.g. `TELEGRAM_BOT_TOKEN`, `SLACK_WEBHOOK_URL`, `SELF_HEAL_WEBHOOK_URL`, `SENTRY_DSN`).
+
+- **Payload**: By default, diffs are omitted and tracebacks are truncated (`include_diff`, `include_traceback`, `max_traceback_lines`).
+- **Webhook**: JSON POST with optional HMAC (`X-SelfHeal-Signature: sha256=…`, `X-SelfHeal-Timestamp`). Only `https` targets are allowed unless `allow_insecure = true`.
+- **Sentry**: Install extras: `pip install 'self-heal-runtime[notifications]'` (pulls in `sentry-sdk`).
+
+Delivery is asynchronous; successes and failures are also written to `.self-heal/audit.jsonl` as `notification_sent` / `notification_failed`.
 
 ## Security
 
