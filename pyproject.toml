@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "self-heal-runtime"
-version = "0.2.0"
+version = "0.3.0"
 description = "Open-source self-healing runtime for Python: RAG + OpenAI-compatible LLM + unified diff patches"
 readme = "README.md"
 license = { text = "MIT" }
