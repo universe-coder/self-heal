@@ -83,6 +83,55 @@ See [.self-heal.example.toml](.self-heal.example.toml) or run `self-heal init` (
 
 Key sections: `[llm]`, `[index]`, `[heal]`, `[supervisor]`, `[notifications]`.
 
+### Providers
+
+The `[llm].provider` field selects how chat completions are issued. Embeddings always use an OpenAI-compatible endpoint (so OpenAI / HF / Ollama work out of the box for indexing).
+
+- **OpenAI** (default):
+
+  ```toml
+  [llm]
+  provider = "openai"
+  base_url = "https://api.openai.com/v1"
+  model = "gpt-4o-mini"
+  embedding_model = "text-embedding-3-small"
+  api_key_env = "OPENAI_API_KEY"
+  ```
+
+- **Anthropic** — native Messages API (`POST /v1/messages` with `x-api-key` and `anthropic-version` headers):
+
+  ```toml
+  [llm]
+  provider = "anthropic"
+  base_url = "https://api.anthropic.com/v1"
+  model = "claude-3-5-sonnet-20241022"
+  api_key_env = "ANTHROPIC_API_KEY"
+  ```
+
+  > Anthropic does not provide an embeddings API. `self-heal index` is rejected with `provider = "anthropic"`. To use RAG, run indexing with another provider (e.g. swap to `openai`/`huggingface`/`ollama` for `self-heal index`, then switch back to `anthropic` for healing).
+
+- **Hugging Face** — Inference Providers router (OpenAI-compatible):
+
+  ```toml
+  [llm]
+  provider = "huggingface"
+  base_url = "https://router.huggingface.co/v1"
+  model = "meta-llama/Llama-3.1-8B-Instruct"
+  embedding_model = "intfloat/multilingual-e5-large"
+  api_key_env = "HF_TOKEN"
+  ```
+
+- **Ollama** — local OpenAI-compatible endpoint (no auth):
+
+  ```toml
+  [llm]
+  provider = "ollama"
+  base_url = "http://localhost:11434/v1"
+  model = "llama3.1"
+  embedding_model = "nomic-embed-text"
+  api_key_env = "OLLAMA_API_KEY"  # ignored by Ollama
+  ```
+
 ## Notifications
 
 Optional outbound reports when an error is captured and when a heal is proposed or applied. Enable `[notifications].enabled = true`, then turn on individual channels under `[notifications.telegram]`, `[notifications.slack]`, `[notifications.webhook]`, or `[notifications.sentry]`. Secrets stay in environment variables (e.g. `TELEGRAM_BOT_TOKEN`, `SLACK_WEBHOOK_URL`, `SELF_HEAL_WEBHOOK_URL`, `SENTRY_DSN`).

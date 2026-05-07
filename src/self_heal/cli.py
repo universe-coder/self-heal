@@ -61,6 +61,12 @@ def index(
     logging.basicConfig(level=logging.INFO)
     root = _project_root(project)
     cfg = load_config_for_root(root)
+    if cfg.llm.provider == "anthropic":
+        console.print(
+            "[red]Anthropic does not provide an embeddings API. "
+            "Set [llm].provider to openai/huggingface/ollama for indexing.[/red]"
+        )
+        raise typer.Exit(code=1)
     client = LLMClient(cfg)
     if not client.is_configured:
         console.print(

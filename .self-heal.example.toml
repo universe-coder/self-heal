@@ -1,10 +1,30 @@
 [llm]
+provider = "openai"
 base_url = "https://api.openai.com/v1"
 model = "gpt-4o-mini"
 embedding_model = "text-embedding-3-small"
 api_key_env = "OPENAI_API_KEY"
 timeout_s = 60
 max_tokens = 4096
+
+# --- Alternative providers (uncomment one) ---
+# provider = "anthropic"
+# base_url = "https://api.anthropic.com/v1"
+# model = "claude-3-5-sonnet-20241022"
+# api_key_env = "ANTHROPIC_API_KEY"
+# # NOTE: Anthropic has no embeddings API; `self-heal index` will fail.
+
+# provider = "huggingface"
+# base_url = "https://router.huggingface.co/v1"
+# model = "meta-llama/Llama-3.1-8B-Instruct"
+# embedding_model = "intfloat/multilingual-e5-large"
+# api_key_env = "HF_TOKEN"
+
+# provider = "ollama"
+# base_url = "http://localhost:11434/v1"
+# model = "llama3.1"
+# embedding_model = "nomic-embed-text"
+# api_key_env = "OLLAMA_API_KEY"  # ignored by Ollama; no auth required
 
 [index]
 roots = ["src/"]

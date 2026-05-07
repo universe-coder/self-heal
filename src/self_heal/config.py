@@ -12,7 +12,11 @@ from pydantic import BaseModel, Field
 DEFAULT_CONFIG_NAME = ".self-heal.toml"
 
 
+LLMProvider = Literal["openai", "anthropic", "huggingface", "ollama"]
+
+
 class LLMConfig(BaseModel):
+    provider: LLMProvider = "openai"
     base_url: str = "https://api.openai.com/v1"
     model: str = "gpt-4o-mini"
     embedding_model: str = "text-embedding-3-small"
@@ -178,3 +182,11 @@ def load_config_for_root(project_root: Path) -> SelfHealConfig:
 
 def get_api_key(cfg: SelfHealConfig) -> str | None:
     return os.environ.get(cfg.llm.api_key_env)
+
+
+def requires_api_key(cfg: SelfHealConfig) -> bool:
+    """Whether the configured chat provider requires an API key.
+
+    Ollama is the only provider supported here that runs without auth by default.
+    """
+    return cfg.llm.provider != "ollama"
