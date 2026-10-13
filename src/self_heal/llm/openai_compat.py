@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import logging
-import time
-from typing import cast
+from typing import Any
 
-from openai import APIError, APITimeoutError, OpenAI, RateLimitError
+from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
+
+from self_heal.llm.retry import RETRY_STATUS_CODES, retry_call
 
 log = logging.getLogger(__name__)
 
-MAX_RETRIES = 3
-RETRY_BACKOFF_S = 1.5
+
+def is_retryable_openai_error(e: Exception) -> bool:
+    if isinstance(e, APITimeoutError | APIConnectionError):
+        return True
+    return isinstance(e, APIStatusError) and e.status_code in RETRY_STATUS_CODES
 
 
 class OpenAICompatChatProvider:
@@ -23,27 +27,27 @@ class OpenAICompatChatProvider:
         *,
         model: str,
         max_tokens: int,
+        temperature: float | None = None,
+        max_retries: int = 3,
     ) -> None:
         self._client = client
         self._model = model
         self._max_tokens = max_tokens
+        self._temperature = temperature
+        self._max_retries = max_retries
 
     def chat(self, system: str, user: str) -> str:
-        last: Exception | None = None
-        for attempt in range(MAX_RETRIES):
-            try:
-                return self._chat_once(system, user)
-            except (RateLimitError, APITimeoutError, APIError) as e:
-                last = e
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_BACKOFF_S * (2**attempt))
-                else:
-                    raise
-        if last:
-            raise last
-        raise RuntimeError("retry failed")
+        return retry_call(
+            lambda: self._chat_once(system, user),
+            is_retryable=is_retryable_openai_error,
+            max_retries=self._max_retries,
+            label=f"chat({self._model})",
+        )
 
     def _chat_once(self, system: str, user: str) -> str:
+        kwargs: dict[str, Any] = {}
+        if self._temperature is not None:
+            kwargs["temperature"] = self._temperature
         resp = self._client.chat.completions.create(
             model=self._model,
             messages=[
@@ -51,9 +55,9 @@ class OpenAICompatChatProvider:
                 {"role": "user", "content": user},
             ],
             max_tokens=self._max_tokens,
+            **kwargs,
         )
-        choice = resp.choices[0]
-        content = choice.message.content
-        if not content:
+        if not resp.choices:
             return ""
-        return cast(str, content)
+        content = resp.choices[0].message.content
+        return content if isinstance(content, str) else ""

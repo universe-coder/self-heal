@@ -13,6 +13,7 @@ import pytest
 from self_heal.config import LLMConfig, SelfHealConfig
 from self_heal.llm.anthropic_provider import (
     ANTHROPIC_VERSION,
+    AnthropicAPIError,
     AnthropicChatProvider,
 )
 from self_heal.llm.client import EMBEDDING_UNSUPPORTED_MSG, LLMClient
@@ -165,7 +166,7 @@ def test_anthropic_provider_retries_on_429_then_succeeds(
         "self_heal.llm.anthropic_provider.urllib.request.build_opener",
         lambda *a, **kw: opener,
     )
-    monkeypatch.setattr("self_heal.llm.anthropic_provider.time.sleep", lambda *_a, **_kw: None)
+    monkeypatch.setattr("self_heal.llm.retry.time.sleep", lambda *_a, **_kw: None)
 
     p = AnthropicChatProvider(
         base_url="https://api.anthropic.com/v1",
@@ -186,7 +187,7 @@ def test_anthropic_provider_does_not_retry_on_400(
         "self_heal.llm.anthropic_provider.urllib.request.build_opener",
         lambda *a, **kw: opener,
     )
-    monkeypatch.setattr("self_heal.llm.anthropic_provider.time.sleep", lambda *_a, **_kw: None)
+    monkeypatch.setattr("self_heal.llm.retry.time.sleep", lambda *_a, **_kw: None)
 
     p = AnthropicChatProvider(
         base_url="https://api.anthropic.com/v1",
@@ -195,8 +196,9 @@ def test_anthropic_provider_does_not_retry_on_400(
         max_tokens=8,
         timeout_s=1.0,
     )
-    with pytest.raises(urllib.error.HTTPError):
+    with pytest.raises(AnthropicAPIError) as exc:
         p.chat("s", "u")
+    assert exc.value.status == 400
     assert len(opener.requests) == 1
 
 
