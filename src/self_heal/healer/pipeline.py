@@ -201,19 +201,6 @@ def heal_from_traceback_text(
 
 
 def _paths_from_diff(diff_text: str, project_root: Path) -> list[str]:
-    from io import StringIO
+    from self_heal.healer.diff import list_touched_paths
 
-    from unidiff import PatchSet
-
-    from self_heal.healer.policy import normalize_diff_path
-
-    try:
-        ps = PatchSet(StringIO(diff_text))
-    except Exception:  # noqa: BLE001
-        return []
-    out: list[str] = []
-    for pf in ps:
-        t = normalize_diff_path(pf.target_file or pf.path)
-        if t:
-            out.append(t)
-    return out
+    return list_touched_paths(diff_text)

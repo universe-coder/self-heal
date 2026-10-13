@@ -52,6 +52,7 @@ class HealConfig(BaseModel):
     backup: bool = True
     top_k: int = 8
     max_diff_lines: int = 500
+    allowed_extensions: list[str] = Field(default_factory=lambda: [".py"])
 
 
 class SupervisorConfig(BaseModel):
