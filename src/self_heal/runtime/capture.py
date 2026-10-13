@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import linecache
+import re
 import traceback as tb_module
 from datetime import UTC, datetime
-from typing import Any
+from types import TracebackType
 
 from pydantic import BaseModel, Field
 
 from self_heal.runtime.sanitize import sanitize_mapping, sanitize_traceback_text
+
+_TRACEBACK_HEADER = "Traceback (most recent call last):"
+_EXC_LINE_RE = re.compile(r"^(?P<type>[A-Za-z_][\w.]*)(?::\s?(?P<msg>.*))?$")
 
 
 class Frame(BaseModel):
@@ -19,6 +24,12 @@ class Frame(BaseModel):
 
 
 class ErrorEvent(BaseModel):
+    """A captured exception.
+
+    ``frames`` is ordered innermost-first: ``frames[0]`` is the frame that raised.
+    ``sanitized_locals`` are the (masked) locals of that innermost frame.
+    """
+
     exception_type: str
     message: str
     traceback: str
@@ -26,65 +37,85 @@ class ErrorEvent(BaseModel):
     sanitized_locals: dict[str, str] = Field(default_factory=dict)
     captured_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+    @property
+    def origin(self) -> Frame | None:
+        """The frame where the exception was raised (innermost), if any."""
+        return self.frames[0] if self.frames else None
+
 
 def _read_source_line(path: str, lineno: int) -> str | None:
-    try:
-        with open(path, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-        if 1 <= lineno <= len(lines):
-            return lines[lineno - 1].rstrip("\n")
-    except OSError:
-        return None
-    return None
+    line = linecache.getline(path, lineno)
+    return line.rstrip("\n") if line else None
+
+
+def _innermost(tb: TracebackType) -> TracebackType:
+    while tb.tb_next is not None:
+        tb = tb.tb_next
+    return tb
 
 
 def capture_from_exception(exc: BaseException, *, limit: int = 30) -> ErrorEvent:
-    """Build ErrorEvent from an active exception (call inside `except`)."""
+    """Build an ``ErrorEvent`` from an exception object.
+
+    Only the ``limit`` innermost frames are kept, so the raise site is never dropped.
+    """
     etype = type(exc).__name__
     message = str(exc)
     tb = exc.__traceback__
     frames: list[Frame] = []
     if tb is not None:
-        for fr, _ in tb_module.walk_tb(tb):
+        for fr, lineno in tb_module.walk_tb(tb):
             code = fr.f_code
-            path = fr.f_code.co_filename
-            lineno = fr.f_lineno
-            func = code.co_name
-            src = _read_source_line(path, lineno)
             frames.append(
                 Frame(
-                    path=path,
+                    path=code.co_filename,
                     line=lineno,
-                    func=func,
-                    source=src,
+                    func=code.co_name,
+                    source=_read_source_line(code.co_filename, lineno),
                 )
             )
-            if len(frames) >= limit:
-                break
+        if limit > 0:
+            frames = frames[-limit:]
 
-    tb_str = "".join(tb_module.format_exception(type(exc), exc, exc.__traceback__))
+    tb_str = "".join(tb_module.format_exception(type(exc), exc, tb))
     tb_str = sanitize_traceback_text(tb_str)
 
-    locals_dict: dict[str, Any] | None = None
-    if tb is not None:
-        last = tb.tb_frame
-        if last is not None:
-            locals_dict = dict(last.f_locals)
+    locals_dict = dict(_innermost(tb).tb_frame.f_locals) if tb is not None else None
 
     return ErrorEvent(
         exception_type=etype,
-        message=message,
+        message=sanitize_traceback_text(message),
         traceback=tb_str,
         frames=list(reversed(frames)),
         sanitized_locals=sanitize_mapping(locals_dict),
     )
 
 
+def parse_exception_from_traceback(tb: str) -> tuple[str, str]:
+    """Best-effort ``(exception_type, message)`` from traceback text.
+
+    Looks at the first non-indented line after the last traceback header, which
+    is where Python prints ``ExcType: message``. Returns ``("Unknown", "")`` when
+    nothing recognisable is found.
+    """
+    lines = tb.splitlines()
+    start = 0
+    for i, ln in enumerate(lines):
+        if ln.strip() == _TRACEBACK_HEADER:
+            start = i + 1
+    for ln in lines[start:]:
+        if not ln.strip() or ln[:1].isspace():
+            continue
+        m = _EXC_LINE_RE.match(ln.strip())
+        if m is None:
+            break
+        return m.group("type"), (m.group("msg") or "").strip()
+    return "Unknown", ""
+
+
 def format_event_for_llm(ev: ErrorEvent) -> str:
-    parts = [
-        ev.traceback.strip(),
-        "",
-        "## Sanitized locals (last frame)",
-        repr(ev.sanitized_locals),
-    ]
+    parts = [ev.traceback.strip()]
+    if ev.sanitized_locals:
+        parts += ["", "## Sanitized locals (innermost frame)"]
+        parts += [f"{k} = {v}" for k, v in ev.sanitized_locals.items()]
     return "\n".join(parts)
