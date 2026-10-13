@@ -337,3 +337,87 @@ def test_sentry_notifier_capture_when_mocked(monkeypatch: pytest.MonkeyPatch) ->
     ev2 = NotificationEvent(kind="heal_applied", exception_type="E", message="ok", applied=True)
     n.send(ev2)
     mock_sdk.capture_message.assert_called()
+
+
+def test_telegram_html_message_stays_within_limit_and_well_formed() -> None:
+    from self_heal.notifications.telegram import TELEGRAM_MAX_CHARS, format_message
+
+    ev = NotificationEvent(
+        kind="heal_applied",
+        exception_type="ValueError",
+        message="m" * 100,
+        applied=True,
+        paths_touched=["a.py"],
+        heal_message="applied via git apply",
+        traceback_excerpt="<tb line>\n" * 400,
+        diff_excerpt="--- a/x.py\n+++ b/x.py\n" + "+line\n" * 500,
+        raw_response_preview="raw" * 500,
+    )
+    text = format_message(ev, "HTML")
+    assert len(text) <= TELEGRAM_MAX_CHARS
+    assert text.count("<pre>") == text.count("</pre>") >= 1
+    assert "&lt;tb line&gt;" in text
+    assert "<b>Heal</b>: applied via git apply" in text  # short sections kept
+    assert text.endswith("</pre>")
+
+
+def test_telegram_markdown_v2_is_escaped() -> None:
+    from self_heal.notifications.telegram import escape_markdown_v2, format_message
+
+    assert escape_markdown_v2("a.b-c (d) _e_ !") == "a\\.b\\-c \\(d\\) \\_e\\_ \\!"
+    ev = NotificationEvent(
+        kind="error_captured",
+        exception_type="ValueError",
+        message="x.y failed (badly)!",
+        traceback_excerpt="File `x.py`\nValueError: x.y",
+    )
+    text = format_message(ev, "MarkdownV2")
+    assert "*Message*: x\\.y failed \\(badly\\)\\!" in text
+    assert "```\nFile \\`x.py\\`\nValueError: x.y\n```" in text
+
+
+def test_telegram_notifier_sends_markdown_v2_without_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from self_heal.config import TelegramNotifConfig
+
+    calls: list[dict[str, str]] = []
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+    monkeypatch.setattr(
+        "self_heal.notifications.telegram.post_form_urlencoded",
+        lambda url, fields, *, timeout_s: calls.append(fields),
+    )
+    cfg = TelegramNotifConfig(enabled=True, chat_id="1", parse_mode="MarkdownV2")
+    TelegramNotifier(cfg, timeout_s=1.0).send(
+        NotificationEvent(kind="error_captured", exception_type="E", message="a.b")
+    )
+    assert calls[0]["parse_mode"] == "MarkdownV2"
+    assert "a\\.b" in calls[0]["text"]
+
+    cfg = TelegramNotifConfig(enabled=True, chat_id="1", parse_mode="none")
+    TelegramNotifier(cfg, timeout_s=1.0).send(
+        NotificationEvent(kind="error_captured", exception_type="E", message="a.b")
+    )
+    assert "parse_mode" not in calls[1]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://127.0.0.1/hook",
+        "https://10.1.2.3/hook",
+        "https://[::1]/hook",
+        "https://[::ffff:10.0.0.1]/hook",
+        "https://224.0.0.1/hook",
+        "https://0.0.0.0/hook",
+        "https://foo.localhost/hook",
+        "https://user:pw@example.com/hook",
+    ],
+)
+def test_validate_webhook_rejects_local_and_credentialed_targets(url: str) -> None:
+    with pytest.raises(ValueError):
+        validate_webhook_url(url, allow_insecure=False)
+
+
+def test_validate_webhook_accepts_public_literal_ip() -> None:
+    validate_webhook_url("https://93.184.216.34/hook", allow_insecure=False)
