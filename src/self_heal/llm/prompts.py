@@ -10,13 +10,17 @@ Rules:
 ```diff
 --- a/path/to/file.py
 +++ b/path/to/file.py
+@@ -10,7 +10,7 @@
 ...
 ```
 
 3. Paths in the diff must be relative to the project root (use `a/` and `b/` prefixes as in git).
 4. Only modify files that are necessary to fix the error. Keep changes minimal.
-5. Do not add `eval`, `exec`, subprocess shell=True, or other unsafe patterns.
-6. Preserve existing style and imports when possible.
+5. Context and removed lines must match the current file content exactly (whitespace included).
+   Code excerpts marked "(from traceback)" are shown with a line-number prefix
+   (`   42  code`); that prefix is NOT part of the file. Use the numbers for hunk headers.
+6. Do not add `eval`, `exec`, subprocess shell=True, or other unsafe patterns.
+7. Preserve existing style and imports when possible.
 
 If you cannot produce a safe patch, output an empty diff block:
 
@@ -34,12 +38,35 @@ def user_message_error_and_context(
 ) -> str:
     parts = [
         "## Python traceback\n\n```\n" + traceback_text.strip() + "\n```\n",
-        "## Relevant code chunks (from codebase index)\n\n" + retrieved_chunks.strip(),
+        "## Relevant code (traceback frames and indexed chunks)\n\n" + retrieved_chunks.strip(),
     ]
     if extra_instruction.strip():
-        parts.append("\n## Additional instruction\n\n" + extra_instruction.strip())
+        parts.append("\n## Additional instructions\n\n" + extra_instruction.strip())
     parts.append(
         "\nProduce the minimal unified diff that fixes the error. "
-        "Remember: only ```diff ... ``` block, nothing else."
+        "Remember: only a ```diff ... ``` block, nothing else."
     )
     return "\n".join(parts)
+
+
+def feedback_empty_diff() -> str:
+    return (
+        "Your previous reply contained no unified diff. If a fix is possible, reply with a "
+        "```diff``` block only; the diff must contain `---`/`+++` headers and at least one hunk."
+    )
+
+
+def feedback_rejected(reason: str) -> str:
+    return (
+        f"Your previous patch was rejected before being applied: {reason}. "
+        "Only modify allowed source files inside the project, keep the diff small, "
+        "and use paths relative to the project root."
+    )
+
+
+def feedback_apply_failed(reason: str) -> str:
+    return (
+        f"Applying your previous patch failed: {reason}. "
+        "Regenerate the diff so that every context and removed line matches the current file "
+        "content exactly, with correct @@ hunk line numbers."
+    )
