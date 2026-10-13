@@ -4,19 +4,22 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "self-heal-runtime"
-version = "0.3.0"
-description = "Open-source self-healing runtime for Python: RAG + OpenAI-compatible LLM + unified diff patches"
+version = "0.4.0"
+description = "Self-healing runtime for Python: traceback capture, RAG, OpenAI-compatible/Anthropic LLMs, validated unified-diff patches"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
 authors = [{ name = "self-heal contributors" }]
-keywords = ["llm", "self-heal", "debugging", "openai", "rag"]
+keywords = ["llm", "self-heal", "debugging", "openai", "anthropic", "ollama", "rag", "tracebacks"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Debuggers",
+  "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = [
   "openai>=1.40.0",
@@ -25,7 +28,6 @@ dependencies = [
   "typer>=0.12.0",
   "rich>=13.7.0",
   "pydantic>=2.7.0",
-  "pydantic-settings>=2.3.0",
   "pathspec>=0.12.0",
 ]
 
@@ -40,6 +42,12 @@ dev = [
   "mypy>=1.10.0",
   "httpx>=0.27.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/universe-coder/self-heal"
+Repository = "https://github.com/universe-coder/self-heal"
+Issues = "https://github.com/universe-coder/self-heal/issues"
+Changelog = "https://github.com/universe-coder/self-heal/blob/main/CHANGELOG.md"
 
 [project.scripts]
 self-heal = "self_heal.cli:main"
@@ -60,7 +68,6 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/self_heal/cli.py" = ["B008"]
-"src/self_heal/supervisor/runner.py" = ["B023"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -84,3 +91,4 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["src"]
+filterwarnings = ["error::DeprecationWarning:self_heal"]

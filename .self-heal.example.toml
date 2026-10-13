@@ -1,18 +1,24 @@
 [llm]
-provider = "openai"
+provider = "openai"                 # openai | anthropic | huggingface | ollama
 base_url = "https://api.openai.com/v1"
 model = "gpt-4o-mini"
 embedding_model = "text-embedding-3-small"
-api_key_env = "OPENAI_API_KEY"
+api_key_env = "OPENAI_API_KEY"      # the key is read from this environment variable
 timeout_s = 60
 max_tokens = 4096
+max_retries = 3                     # retries on throttling / timeouts / 5xx
+# temperature = 0                   # sent only when set (some reasoning models reject it)
+
+# Embeddings may come from a different OpenAI-compatible endpoint than chat.
+# Required for provider = "anthropic" (no embeddings API) if you want indexing.
+# embedding_base_url = "http://localhost:11434/v1"
+# embedding_api_key_env = "OLLAMA_API_KEY"
 
 # --- Alternative providers (uncomment one) ---
 # provider = "anthropic"
 # base_url = "https://api.anthropic.com/v1"
-# model = "claude-3-5-sonnet-20241022"
+# model = "claude-sonnet-4-5"
 # api_key_env = "ANTHROPIC_API_KEY"
-# # NOTE: Anthropic has no embeddings API; `self-heal index` will fail.
 
 # provider = "huggingface"
 # base_url = "https://router.huggingface.co/v1"
@@ -29,22 +35,27 @@ max_tokens = 4096
 [index]
 roots = ["src/"]
 exclude = [".git/", "node_modules/", "__pycache__/", "*.pyc", ".venv/", ".self-heal/", ".chroma/"]
+respect_gitignore = true            # also skip whatever the project's .gitignore ignores
 chunk_max_lines = 80
 chunk_overlap_lines = 10
 
 [heal]
 allowed_paths = ["src/**", "examples/**"]
 forbidden_paths = [".env*", "**/secrets/**", ".git/", "pyproject.toml"]
-auto_apply = false
-max_attempts = 3
-backup = true
-top_k = 8
+allowed_extensions = [".py"]        # file types a patch may touch
+auto_apply = false                  # in-process "apply" mode writes patches only if true
+max_attempts = 3                    # model round-trips; failures are fed back as feedback
+backup = true                       # copy files to .self-heal/backups/<ts>/ before patching
+top_k = 8                           # indexed chunks added to the prompt
+context_lines = 40                  # source lines shown around each traceback frame
 max_diff_lines = 500
+cooldown_s = 300                    # in-process: same error is not healed again within this window
 
 [supervisor]
 restart_on_exit_codes = [1]
 max_restarts = 5
 healthcheck_grace_s = 5
+stop_on_repeated_traceback = true   # stop when the same crash repeats and nothing was applied
 
 [notifications]
 enabled = false
@@ -54,6 +65,8 @@ events = [
   "heal_empty_diff",
   "heal_applied",
   "heal_apply_failed",
+  # "heal_rejected",                # patch rejected by the path policy on every attempt
+  # "heal_rolled_back",             # `self-heal rollback`
 ]
 timeout_s = 5
 include_diff = false
@@ -64,7 +77,7 @@ max_traceback_lines = 20
 enabled = false
 bot_token_env = "TELEGRAM_BOT_TOKEN"
 chat_id = ""
-parse_mode = "HTML"
+parse_mode = "HTML"                 # HTML | MarkdownV2 | none
 
 [notifications.slack]
 enabled = false
