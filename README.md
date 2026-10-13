@@ -204,6 +204,8 @@ ruff check . && ruff format --check . && mypy && pytest
 
 Tests do not need network access or API keys. See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
+**Releasing**: bump `version` in `pyproject.toml`, update `CHANGELOG.md`, then push a matching tag (`git tag v0.4.0 && git push origin v0.4.0`). The `Publish to PyPI` workflow builds the package and uploads it with PyPI Trusted Publishing.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
