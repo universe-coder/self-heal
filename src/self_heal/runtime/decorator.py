@@ -9,8 +9,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal, TypeVar
 
+from self_heal.events import capture_from_exception
 from self_heal.healer.pipeline import heal_exception
-from self_heal.runtime.capture import capture_from_exception
 
 log = logging.getLogger(__name__)
 

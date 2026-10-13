@@ -11,6 +11,7 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from unidiff import PatchedFile, PatchSet
 
@@ -170,13 +171,18 @@ def list_backups(project_root: Path) -> list[Path]:
     return sorted(p for p in base.iterdir() if p.is_dir() and (p / BACKUP_MANIFEST).is_file())
 
 
-def rollback_backup(project_root: Path, backup_dir: Path) -> list[str]:
-    """Restore files from a backup directory; returns the project-relative paths touched."""
-    root = project_root.resolve()
+def read_backup_manifest(backup_dir: Path) -> dict[str, Any]:
     manifest_path = backup_dir / BACKUP_MANIFEST
     if not manifest_path.is_file():
         raise FileNotFoundError(f"not a self-heal backup (missing {BACKUP_MANIFEST}): {backup_dir}")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return data if isinstance(data, dict) else {}
+
+
+def rollback_backup(project_root: Path, backup_dir: Path) -> list[str]:
+    """Restore files from a backup directory; returns the project-relative paths touched."""
+    root = project_root.resolve()
+    manifest = read_backup_manifest(backup_dir)
     touched: list[str] = []
     for rel in manifest.get("files", []):
         src = backup_dir / rel

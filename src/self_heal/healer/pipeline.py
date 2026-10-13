@@ -11,13 +11,21 @@ from typing import Any, Literal
 
 from self_heal.audit.log import append_audit
 from self_heal.config import SelfHealConfig, find_config, load_config_for_root
+from self_heal.events import (
+    ErrorEvent,
+    Frame,
+    format_event_for_llm,
+    parse_exception_from_traceback,
+)
 from self_heal.healer.diff import (
     DiffApplyResult,
     apply_patch,
+    backup_files,
     extract_diff_from_response,
     file_hashes,
     list_backups,
     list_touched_paths,
+    read_backup_manifest,
     rollback_backup,
     validate_patch_paths,
 )
@@ -27,12 +35,6 @@ from self_heal.llm.prompts import feedback_apply_failed, feedback_empty_diff, fe
 from self_heal.notifications.dispatcher import notify
 from self_heal.retrieval.retriever import NO_CONTEXT_MSG, extract_frames_from_traceback
 from self_heal.retrieval.retriever import retrieve_chunks as _retrieve_chunks
-from self_heal.runtime.capture import (
-    ErrorEvent,
-    Frame,
-    format_event_for_llm,
-    parse_exception_from_traceback,
-)
 
 log = logging.getLogger(__name__)
 
@@ -358,7 +360,11 @@ def rollback(
     *,
     cfg: SelfHealConfig | None = None,
 ) -> tuple[Path, list[str]]:
-    """Restore files from a backup (the latest by default); audited and notified."""
+    """Restore files from a backup (the latest by default); audited and notified.
+
+    The current content of the affected files is backed up first, so a rollback
+    can itself be rolled back.
+    """
     root = project_root.resolve()
     conf = cfg or load_config_for_root(root)
     if backup_dir is None:
@@ -366,6 +372,10 @@ def rollback(
         if not backups:
             raise FileNotFoundError("no self-heal backups found")
         backup_dir = backups[-1]
+    manifest = read_backup_manifest(backup_dir)
+    affected = [*manifest.get("files", []), *manifest.get("created_by_patch", [])]
+    if affected:
+        backup_files(root, affected)
     touched = rollback_backup(root, backup_dir)
     append_audit(
         root,
