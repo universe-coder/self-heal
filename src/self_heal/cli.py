@@ -73,8 +73,11 @@ def index(
             f"[red]Set {cfg.llm.api_key_env} for embeddings.[/red]",
         )
         raise typer.Exit(code=1)
-    n_files, n_chunks = run_index(root, cfg, client)
-    console.print(f"Indexed [green]{n_files}[/green] files, [green]{n_chunks}[/green] chunks.")
+    stats = run_index(root, cfg, client)
+    console.print(
+        f"Indexed [green]{stats.files_indexed}[/green] files, "
+        f"[green]{stats.chunks_indexed}[/green] chunks."
+    )
 
 
 @app.command("heal")
