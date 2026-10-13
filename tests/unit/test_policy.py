@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import pytest
@@ -55,6 +56,7 @@ def test_escaping_paths_rejected(tmp_path: Path, bad: str) -> None:
     assert not is_path_allowed(bad, tmp_path, ["**"], [])
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="symlinks need privileges on Windows")
 def test_symlink_escape_rejected(tmp_path: Path) -> None:
     outside = tmp_path.parent / f"{tmp_path.name}_outside"
     outside.mkdir(exist_ok=True)
